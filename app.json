@@ -6,12 +6,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./icon.png",
     "splash": {
       "backgroundColor": "#0e0b07"
     },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.takehiro5585.meshiapp",
+      "icon": "./icon.png",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "近くのレストランを探すために位置情報を使用します。"
       }
@@ -20,7 +22,8 @@
       "package": "com.takehiro5585.meshiapp",
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
       "adaptiveIcon": {
-        "backgroundColor": "#0e0b07"
+        "foregroundImage": "./icon.png",
+        "backgroundColor": "#FF6B6B"
       }
     },
     "plugins": [
