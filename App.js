@@ -5,9 +5,10 @@ import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Animated, Easing, Linking, ActivityIndicator,
-  SafeAreaView, StatusBar, Platform,
+  SafeAreaView, StatusBar, Platform, TextInput, Modal, Alert,
 } from 'react-native';
 import * as Location from 'expo-location';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   BannerAd, BannerAdSize, InterstitialAd,
   AdEventType, TestIds,
@@ -46,6 +47,7 @@ const GENRES = [
   { id:'burger',   label:'バーガー',   emoji:'🍔', kw:'ハンバーガー' },
   { id:'asian',    label:'アジア料理', emoji:'🌏', kw:'タイ料理 ベトナム料理' },
   { id:'sweets',   label:'スイーツ',   emoji:'🍰', kw:'カフェ スイーツ' },
+  { id:'other',    label:'その他',     emoji:'🍽️', kw:'レストラン' },
 ];
 
 const MEALS = {
@@ -226,6 +228,7 @@ const GENRE_SEARCH = {
   burger:   'ハンバーガー バーガー',
   asian:    'タイ料理 ベトナム料理 アジア料理',
   sweets:   'カフェ スイーツ ケーキ',
+  other:    'レストラン',
 };
 
 // Google Maps "near me" 検索URL を生成
@@ -555,6 +558,104 @@ function NearbyButton({ genreId, mealName, uLat, uLng }) {
   );
 }
 
+// ─── マイメニュー追加モーダル ─────────────────────────────────────────
+function MyMenuModal({ visible, onClose, onSave }) {
+  const [name,    setName]    = useState('');
+  const [genreId, setGenreId] = useState('japanese');
+  const [type,    setType]    = useState('eating');
+
+  const reset = () => { setName(''); setGenreId('japanese'); setType('eating'); };
+
+  const handleSave = () => {
+    if (!name.trim()) { Alert.alert('エラー', 'メニュー名を入力してください'); return; }
+    const genre = GENRES.find(g => g.id === genreId);
+    onSave({ name: name.trim(), emoji: genre.emoji, genreId, type, tips:'マイオリジナルメニュー！', isCustom: true });
+    reset(); onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={ms.overlay}>
+        <ScrollView>
+        <View style={ms.sheet}>
+          <View style={ms.sheetHeader}>
+            <Text style={ms.sheetTitle}>➕ マイメニューを追加</Text>
+            <TouchableOpacity onPress={() => { reset(); onClose(); }}>
+              <Text style={ms.closeBtn}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ジャンル選択 */}
+          <Text style={ms.fieldLabel}>ジャンル</Text>
+          <View style={ms.genreGrid}>
+            {GENRES.map(g => (
+              <TouchableOpacity
+                key={g.id}
+                style={[ms.genreChip, genreId===g.id && ms.genreChipOn]}
+                onPress={() => setGenreId(g.id)}
+              >
+                <Text style={ms.genreEmoji}>{g.emoji}</Text>
+                <Text style={[ms.genreLabel, genreId===g.id && ms.genreLabelOn]}>{g.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* 自炊/外食 */}
+          <Text style={ms.fieldLabel}>スタイル</Text>
+          <View style={ms.typeRow}>
+            <TouchableOpacity style={[ms.typeBtn, type==='cooking' && ms.typeBtnOn]} onPress={() => setType('cooking')}>
+              <Text style={[ms.typeTxt, type==='cooking' && ms.typeTxtOn]}>🏠 自炊</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[ms.typeBtn, type==='eating' && ms.typeBtnOn]} onPress={() => setType('eating')}>
+              <Text style={[ms.typeTxt, type==='eating' && ms.typeTxtOn]}>🚶 外食</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* メニュー名 */}
+          <Text style={ms.fieldLabel}>メニュー名 *</Text>
+          <TextInput
+            style={ms.input}
+            placeholder="例：おばあちゃんの煮物"
+            placeholderTextColor={C.muted}
+            value={name}
+            onChangeText={setName}
+            maxLength={30}
+          />
+
+          {/* 保存ボタン */}
+          <TouchableOpacity style={ms.saveBtn} onPress={handleSave} activeOpacity={0.85}>
+            <Text style={ms.saveBtnTxt}>💾 追加する</Text>
+          </TouchableOpacity>
+        </View>
+        </ScrollView>
+      </View>
+    </Modal>
+  );
+}
+
+const ms = StyleSheet.create({
+  overlay:      { flex:1, backgroundColor:'rgba(0,0,0,0.7)', justifyContent:'flex-end' },
+  sheet:        { backgroundColor:C.card, borderTopLeftRadius:24, borderTopRightRadius:24, padding:24, paddingBottom:50, borderTopWidth:2, borderTopColor:C.accent },
+  sheetHeader:  { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:16 },
+  sheetTitle:   { fontSize:17, fontWeight:'700', color:C.text },
+  closeBtn:     { fontSize:20, color:C.muted, padding:4 },
+  fieldLabel:   { fontSize:11, fontWeight:'700', color:C.muted, letterSpacing:1.5, textTransform:'uppercase', marginBottom:8, marginTop:16 },
+  genreGrid:    { flexDirection:'row', flexWrap:'wrap', gap:7 },
+  genreChip:    { width:'30%', paddingVertical:8, borderWidth:1.5, borderColor:C.border, borderRadius:10, backgroundColor:C.surface, alignItems:'center', gap:3 },
+  genreChipOn:  { borderColor:C.accent, backgroundColor:'rgba(245,166,35,0.1)' },
+  genreEmoji:   { fontSize:20 },
+  genreLabel:   { fontSize:10, color:C.muted, textAlign:'center' },
+  genreLabelOn: { color:C.accent },
+  typeRow:      { flexDirection:'row', gap:10 },
+  typeBtn:      { flex:1, paddingVertical:10, borderRadius:10, borderWidth:1.5, borderColor:C.border, alignItems:'center', backgroundColor:C.surface },
+  typeBtnOn:    { borderColor:C.accent, backgroundColor:'rgba(245,166,35,0.1)' },
+  typeTxt:      { fontSize:14, fontWeight:'700', color:C.muted },
+  typeTxtOn:    { color:C.accent },
+  input:        { backgroundColor:C.surface, borderWidth:1, borderColor:C.border, borderRadius:10, padding:12, color:C.text, fontSize:14 },
+  saveBtn:      { marginTop:20, paddingVertical:15, borderRadius:14, backgroundColor:C.accent, alignItems:'center' },
+  saveBtnTxt:   { fontSize:16, fontWeight:'900', color:'#fff' },
+});
+
 // ─── メイン画面 ───────────────────────────────────────────────────────
 export default function App() {
   const [style,     setStyle]     = useState('cooking');
@@ -567,7 +668,32 @@ export default function App() {
   const [uCoords,   setUCoords]   = useState(null);
   const [fbUrl,     setFbUrl]     = useState('');
   const [recipeKey, setRecipeKey] = useState(0);
+  const [myMenus,   setMyMenus]   = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [showMyList,setShowMyList]= useState(false);
+  const [menuMode,  setMenuMode]  = useState('normal'); // 'normal' | 'my' | 'both'
   const rollCount = useRef(0);
+
+  // マイメニューをAsyncStorageから読み込む
+  useEffect(() => {
+    AsyncStorage.getItem('myMenus').then(val => {
+      if (val) setMyMenus(JSON.parse(val));
+    }).catch(() => {});
+  }, []);
+
+  // マイメニューを保存
+  const saveMyMenus = (menus) => {
+    setMyMenus(menus);
+    AsyncStorage.setItem('myMenus', JSON.stringify(menus)).catch(() => {});
+  };
+
+  const addMyMenu = (menu) => saveMyMenus([...myMenus, { ...menu, id: Date.now().toString() }]);
+  const deleteMyMenu = (id) => {
+    Alert.alert('削除', 'このメニューを削除しますか？', [
+      { text: 'キャンセル', style: 'cancel' },
+      { text: '削除', style: 'destructive', onPress: () => saveMyMenus(myMenus.filter(m => m.id !== id)) },
+    ]);
+  };
 
   // インタースティシャル広告の初期化
   const interstitial = useRef(
@@ -602,14 +728,33 @@ export default function App() {
   );
 
   const roll = () => {
-    if (spinning || selected.size === 0) return;
+    if (spinning) return;
+    const type = style === 'cooking' ? 'cooking' : 'eating';
+
+    // 通常メニュー候補
     const arr     = [...selected];
     const genreId = arr[Math.floor(Math.random() * arr.length)];
     const genre   = GENRES.find(g => g.id === genreId);
-    const type = style === 'cooking' ? 'cooking' : 'eating';
-    const opts    = MEALS[genreId]?.[type] || MEALS[genreId]?.cooking || [];
-    if (!opts.length) return;
-    const meal = opts[Math.floor(Math.random() * opts.length)];
+    const regularOpts = menuMode !== 'my'
+      ? (MEALS[genreId]?.[type] || MEALS[genreId]?.cooking || []).map(m => ({ ...m, genre, type, isCustom:false }))
+      : [];
+
+    // マイメニュー候補
+    const customOpts = menuMode !== 'normal'
+      ? myMenus.filter(m => m.type === type).map(m => {
+          const g = GENRES.find(g2 => g2.id === m.genreId) || { id:'other', label:'その他', emoji:'🍽️', kw:'レストラン' };
+          return { ...m, genre: g, type, isCustom:true };
+        })
+      : [];
+
+    const allOpts = [...regularOpts, ...customOpts];
+    if (!allOpts.length) {
+      Alert.alert('メニューがありません', menuMode === 'my' ? 'マイメニューを追加してください' : 'ジャンルを選択してください');
+      return;
+    }
+
+    const picked = allOpts[Math.floor(Math.random() * allOpts.length)];
+    const pickedMeal = { name: picked.name, emoji: picked.emoji, tips: picked.tips || 'マイオリジナルメニュー！' };
 
     setSpinning(true);
     setResult(null);
@@ -625,11 +770,9 @@ export default function App() {
     setTimeout(() => {
       spinLoop.current?.stop();
       setSpinning(false);
-      setResult({ meal, genre, type });
+      setResult({ meal: pickedMeal, genre: picked.genre, type, isCustom: picked.isCustom });
       scaleVal.setValue(0.7);
       Animated.spring(scaleVal, { toValue:1, speed:20, bounciness:14, useNativeDriver:true }).start();
-
-      // 3回に1回インタースティシャル広告を表示
       rollCount.current += 1;
       if (rollCount.current % 3 === 0 && interstitialLoaded) {
         setTimeout(() => interstitial.show(), 500);
@@ -706,6 +849,60 @@ export default function App() {
         <TouchableOpacity style={[s.rollBtn, spinning && {opacity:0.6}]} onPress={roll} activeOpacity={0.85} disabled={spinning}>
           <Text style={s.rollTxt}>{spinning ? '決定中...' : '🎰 ランダムに決める！'}</Text>
         </TouchableOpacity>
+
+        {/* マイメニューセクション */}
+        <View style={s.myMenuSection}>
+          {/* 切り替えスイッチ */}
+          <Text style={s.label}>③ メニューの範囲</Text>
+          <View style={s.modeRow}>
+            {[
+              { key:'normal', label:'通常のみ' },
+              { key:'both',   label:'両方' },
+              { key:'my',     label:'マイのみ' },
+            ].map(o => (
+              <TouchableOpacity
+                key={o.key}
+                style={[s.modeBtn, menuMode===o.key && s.modeBtnOn]}
+                onPress={() => setMenuMode(o.key)}
+              >
+                <Text style={[s.modeTxt, menuMode===o.key && s.modeTxtOn]}>{o.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* マイメニュー管理 */}
+          <View style={s.myMenuHeader}>
+            <Text style={s.myMenuTitle}>⭐ マイメニュー {myMenus.length > 0 ? `(${myMenus.length}件)` : ''}</Text>
+            <View style={s.myMenuBtns}>
+              {myMenus.length > 0 && (
+                <TouchableOpacity style={s.myMenuBtn} onPress={() => setShowMyList(!showMyList)}>
+                  <Text style={s.myMenuBtnTxt}>{showMyList ? '閉じる' : '一覧'}</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[s.myMenuBtn, s.myMenuBtnAccent]} onPress={() => setShowModal(true)}>
+                <Text style={[s.myMenuBtnTxt, {color:'#fff'}]}>＋ 追加</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* マイメニュー一覧 */}
+          {showMyList && myMenus.map(m => (
+            <View key={m.id} style={s.myMenuItem}>
+              <Text style={s.myMenuItemEmoji}>{m.emoji}</Text>
+              <View style={s.myMenuItemInfo}>
+                <Text style={s.myMenuItemName}>{m.name}</Text>
+                <Text style={s.myMenuItemMeta}>{m.type==='cooking'?'🏠 自炊':'🚶 外食'} ・ {GENRES.find(g=>g.id===m.genreId)?.label||'その他'}</Text>
+              </View>
+              <TouchableOpacity onPress={() => deleteMyMenu(m.id)}>
+                <Text style={{fontSize:18}}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          {myMenus.length === 0 && (
+            <Text style={s.myMenuHint}>「＋ 追加」で自分だけのメニューを登録できます</Text>
+          )}
+        </View>
 
         {/* 結果カード */}
         {(spinning || result) && (
@@ -789,6 +986,9 @@ export default function App() {
         )}
 
       </ScrollView>
+
+      {/* マイメニュー追加モーダル */}
+      <MyMenuModal visible={showModal} onClose={() => setShowModal(false)} onSave={addMyMenu} />
 
       {/* バナー広告（画面下部固定） */}
       <View style={s.bannerWrap}>
@@ -907,4 +1107,24 @@ const s = StyleSheet.create({
 
   // バナー広告
   bannerWrap: { alignItems:'center', backgroundColor:C.bg, paddingBottom:4 },
+
+  // マイメニュー
+  myMenuSection:  { marginTop:14, backgroundColor:C.card, borderRadius:14, padding:14, borderWidth:1, borderColor:C.border },
+  modeRow:        { flexDirection:'row', gap:6, backgroundColor:C.surface, borderWidth:1, borderColor:C.border, borderRadius:12, padding:4, marginBottom:14 },
+  modeBtn:        { flex:1, paddingVertical:8, borderRadius:9, alignItems:'center' },
+  modeBtnOn:      { backgroundColor:C.accent, shadowColor:C.accent, shadowOpacity:0.3, shadowRadius:8, elevation:3 },
+  modeTxt:        { fontSize:12, fontWeight:'700', color:C.muted },
+  modeTxtOn:      { color:'#fff' },
+  myMenuHeader:   { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:8 },
+  myMenuTitle:    { fontSize:13, fontWeight:'700', color:C.text },
+  myMenuBtns:     { flexDirection:'row', gap:6 },
+  myMenuBtn:      { borderWidth:1.5, borderColor:C.border, borderRadius:8, paddingVertical:5, paddingHorizontal:10 },
+  myMenuBtnAccent:{ backgroundColor:C.accent, borderColor:C.accent },
+  myMenuBtnTxt:   { fontSize:12, fontWeight:'700', color:C.muted },
+  myMenuHint:     { fontSize:12, color:C.muted, lineHeight:18 },
+  myMenuItem:     { flexDirection:'row', alignItems:'center', gap:10, backgroundColor:C.surface, borderRadius:10, padding:10, marginBottom:6 },
+  myMenuItemEmoji:{ fontSize:24 },
+  myMenuItemInfo: { flex:1 },
+  myMenuItemName: { fontSize:13, fontWeight:'700', color:C.text },
+  myMenuItemMeta: { fontSize:11, color:C.muted, marginTop:2 },
 });
