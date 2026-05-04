@@ -2,6 +2,7 @@
   "expo": {
     "name": "今日なに食べる？",
     "slug": "meshi-app",
+    "owner": "takehiro5585",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -10,13 +11,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.yourname.meshiapp",
+      "bundleIdentifier": "com.takehiro5585.meshiapp",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "近くのレストランを探すために位置情報を使用します。"
       }
     },
     "android": {
-      "package": "com.yourname.meshiapp",
+      "package": "com.takehiro5585.meshiapp",
       "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION"],
       "adaptiveIcon": {
         "backgroundColor": "#0e0b07"
@@ -29,6 +30,11 @@
           "locationWhenInUsePermission": "近くのレストランを探すために位置情報を使用します。"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "12e7afb0-1b4f-4aeb-877c-9526f4de7275"
+      }
+    }
   }
 }
