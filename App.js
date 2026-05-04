@@ -1,14 +1,23 @@
 // =====================================================================
-// 今日なに食べる？ - Expo Snack 版（AIレシピ付き）
-// snack.expo.dev に貼り付けるだけで動きます
+// 今日なに食べる？ - Expo版（AdMob広告付き）
 // =====================================================================
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Animated, Easing, Linking, ActivityIndicator,
   SafeAreaView, StatusBar, Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
+import {
+  BannerAd, BannerAdSize, InterstitialAd,
+  AdEventType, TestIds,
+} from 'react-native-google-mobile-ads';
+
+// ─── AdMob ID ────────────────────────────────────────────────────────
+const IS_TEST = false; // テスト時は true にする
+const ADMOB_APP_ID   = 'ca-app-pub-9360230936754650~5232823603';
+const BANNER_ID      = IS_TEST ? TestIds.BANNER      : 'ca-app-pub-9360230936754650/1035617781';
+const INTERSTITIAL_ID= IS_TEST ? TestIds.INTERSTITIAL: 'ca-app-pub-9360230936754650/9621608251';
 
 // ─── カラーテーマ ─────────────────────────────────────────────────────
 const C = {
@@ -557,7 +566,26 @@ export default function App() {
   const [shopErr,   setShopErr]   = useState('');
   const [uCoords,   setUCoords]   = useState(null);
   const [fbUrl,     setFbUrl]     = useState('');
-  const [recipeKey, setRecipeKey] = useState(0); // レシピリセット用
+  const [recipeKey, setRecipeKey] = useState(0);
+  const rollCount = useRef(0);
+
+  // インタースティシャル広告の初期化
+  const interstitial = useRef(
+    InterstitialAd.createForAdRequest(INTERSTITIAL_ID, { requestNonPersonalizedAdsOnly: false })
+  ).current;
+  const [interstitialLoaded, setInterstitialLoaded] = useState(false);
+
+  useEffect(() => {
+    const unsubLoaded = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+      setInterstitialLoaded(true);
+    });
+    const unsubClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+      setInterstitialLoaded(false);
+      interstitial.load(); // 次の広告をプリロード
+    });
+    interstitial.load();
+    return () => { unsubLoaded(); unsubClosed(); };
+  }, []); // レシピリセット用
 
   const spinVal  = useRef(new Animated.Value(0)).current;
   const scaleVal = useRef(new Animated.Value(1)).current;
@@ -600,6 +628,12 @@ export default function App() {
       setResult({ meal, genre, type });
       scaleVal.setValue(0.7);
       Animated.spring(scaleVal, { toValue:1, speed:20, bounciness:14, useNativeDriver:true }).start();
+
+      // 3回に1回インタースティシャル広告を表示
+      rollCount.current += 1;
+      if (rollCount.current % 3 === 0 && interstitialLoaded) {
+        setTimeout(() => interstitial.show(), 500);
+      }
     }, 750);
   };
 
@@ -755,6 +789,15 @@ export default function App() {
         )}
 
       </ScrollView>
+
+      {/* バナー広告（画面下部固定） */}
+      <View style={s.bannerWrap}>
+        <BannerAd
+          unitId={BANNER_ID}
+          size={BannerAdSize.ANCHORED_ADAPTIVE_BANNER}
+          requestOptions={{ requestNonPersonalizedAdsOnly: false }}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -861,4 +904,7 @@ const s = StyleSheet.create({
 
   againBtn: { marginTop:16, width:'100%', borderWidth:1.5, borderColor:C.border, borderRadius:11, paddingVertical:13 },
   againTxt: { fontSize:14, color:C.muted, textAlign:'center' },
+
+  // バナー広告
+  bannerWrap: { alignItems:'center', backgroundColor:C.bg, paddingBottom:4 },
 });
