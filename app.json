@@ -29,6 +29,12 @@
         {
           "locationWhenInUsePermission": "近くのレストランを探すために位置情報を使用します。"
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9360230936754650~5232823603"
+        }
       ]
     ],
     "extra": {
