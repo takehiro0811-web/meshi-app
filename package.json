@@ -17,5 +17,8 @@
   "devDependencies": {
     "@babel/core": "^7.24.0"
   },
-  "private": true
+  "private": true,
+  "resolutions": {
+    "react": "18.3.2"
+  }
 }
